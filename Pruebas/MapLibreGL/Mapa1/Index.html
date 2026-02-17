@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <title>Mapa Personalizado</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" />
+    <style>
+        body { margin: 0; padding: 0; }
+        #map { width: 100vw; height: 100vh; }
+        
+        /* Estilos para controles personalizados */
+        .map-controls {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            z-index: 1000;
+            background: white;
+            padding: 10px;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+        
+        .style-button {
+            padding: 8px 12px;
+            margin: 2px;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+            background: #f0f0f0;
+        }
+        
+        .style-button:hover {
+            background: #e0e0e0;
+        }
+        
+        .style-button.active {
+            background: #007cbf;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <div id="map"></div>
+    
+    <div class="map-controls">
+        <h3>Estilos del mapa</h3>
+        <button class="style-button active" onclick="changeStyle('normal')">Normal</button>
+        <button class="style-button" onclick="changeStyle('dark')">Oscuro</button>
+        <button class="style-button" onclick="changeStyle('vintage')">Vintage</button>
+    </div>
+
+    <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+    <script>
+        // Configuración del mapa
+        const map = new maplibregl.Map({
+            container: 'map',
+            style: {
+                version: 8,
+                sources: {
+                    'osm': {
+                        type: 'raster',
+                        tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
+                        tileSize: 256
+                    }
+                },
+                layers: [{
+                    id: 'osm',
+                    type: 'raster',
+                    source: 'osm'
+                }]
+            },
+            center: [-3.7038, 40.4168], // Madrid
+            zoom: 12,
+            minZoom: 11,
+            maxZoom: 14,
+            maxBounds: [
+                [-3.8, 40.3],
+                [-3.5, 40.5]
+            ]
+        });
+
+        // Deshabilitar rotación
+        map.dragRotate.disable();
+        map.touchZoomRotate.disableRotation();
+
+        // Puntos de interés
+        const locations = [
+            { lng: -3.7038, lat: 40.4168, name: 'Madrid Centro', type: 'city', color: '#FF4444', icon: '🏙️' },
+            { lng: -3.6833, lat: 40.4667, name: 'Parque del Retiro', type: 'park', color: '#44FF44', icon: '🌳' },
+            { lng: -3.6919, lat: 40.4203, name: 'Museo del Prado', type: 'museum', color: '#4444FF', icon: '🏛️' },
+            { lng: -3.7125, lat: 40.4238, name: 'Palacio Real', type: 'monument', color: '#FFAA44', icon: '👑' },
+            { lng: -3.7253, lat: 40.4297, name: 'Templo de Debod', type: 'monument', color: '#FFAA44', icon: '🏛️' },
+            { lng: -3.6886, lat: 40.4253, name: 'Puerta de Alcalá', type: 'monument', color: '#FFAA44', icon: '🚪' }
+        ];
+
+        // Función para cambiar estilo
+        window.changeStyle = (styleName) => {
+            let style = {
+                version: 8,
+                sources: {
+                    'osm': {
+                        type: 'raster',
+                        tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
+                        tileSize: 256
+                    }
+                },
+                layers: [{
+                    id: 'osm',
+                    type: 'raster',
+                    source: 'osm',
+                    paint: {}
+                }]
+            };
+
+            switch(styleName) {
+                case 'dark':
+                    style.layers[0].paint = {
+                        'raster-saturation': -0.8,
+                        'raster-contrast': 0.2,
+                        'raster-brightness-min': 0.1,
+                        'raster-brightness-max': 0.6
+                    };
+                    break;
+                case 'vintage':
+                    style.layers[0].paint = {
+                        'raster-hue-rotate': 30,
+                        'raster-saturation': -0.5,
+                        'raster-contrast': 0.1,
+                        'raster-brightness-min': 0.2,
+                        'raster-brightness-max': 0.9
+                    };
+                    break;
+                default:
+                    // estilo normal
+                    break;
+            }
+
+            map.setStyle(style);
+            
+            // Actualizar botones
+            document.querySelectorAll('.style-button').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            event.target.classList.add('active');
+        };
+
+        // Agregar marcadores cuando el mapa cargue
+        map.on('load', () => {
+            locations.forEach(location => {
+                // Crear popup personalizado
+                const popup = new maplibregl.Popup({ offset: 25 })
+                    .setHTML(`
+                        <div style="font-family: Arial;">
+                            <h3 style="margin: 0; color: ${location.color};">${location.icon} ${location.name}</h3>
+                            <p style="margin: 5px 0 0 0;">Tipo: ${location.type}</p>
+                        </div>
+                    `);
+
+                // Crear marcador
+                new maplibregl.Marker({ color: location.color })
+                    .setLngLat([location.lng, location.lat])
+                    .setPopup(popup)
+                    .addTo(map);
+            });
+
+            // Agregar una capa GeoJSON adicional
+            map.addSource('bounds', {
+                type: 'geojson',
+                data: {
+                    type: 'Feature',
+                    geometry: {
+                        type: 'Polygon',
+                        coordinates: [[
+                            [-3.8, 40.3],
+                            [-3.5, 40.3],
+                            [-3.5, 40.5],
+                            [-3.8, 40.5],
+                            [-3.8, 40.3]
+                        ]]
+                    }
+                }
+            });
+
+            // Agregar un rectángulo semi-transparente para mostrar el área visible
+            map.addLayer({
+                id: 'area-bounds',
+                type: 'fill',
+                source: 'bounds',
+                paint: {
+                    'fill-color': '#007cbf',
+                    'fill-opacity': 0.1,
+                    'fill-outline-color': '#007cbf'
+                }
+            });
+        });
+
+        // Controles del mapa
+        map.addControl(new maplibregl.NavigationControl(), 'top-right');
+        map.addControl(new maplibregl.FullscreenControl(), 'top-right');
+        
+        // Mostrar coordenadas al hacer clic
+        map.on('click', (e) => {
+            console.log('Coordenadas:', e.lngLat);
+        });
+    </script>
+</body>
+</html>
